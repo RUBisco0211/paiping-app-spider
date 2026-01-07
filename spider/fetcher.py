@@ -4,22 +4,25 @@ import logging
 
 class SspaiFetcher:
     BASE_URL = "https://sspai.com/api/v1"
-    HEADERS = {"User-Agent": "curl/7.64.1"}  # Mimic curl for now to see if it works
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Referer": "https://sspai.com/",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        "Connection": "keep-alive",
+    }
 
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update(self.HEADERS)
 
     def fetch_feed_articles(self, limit=20, offset=0):
-        """
-        Fetch articles from the main feed.
-        Endpoint: /api/v1/article/index/page/get
-        """
+
         url = f"{self.BASE_URL}/article/index/page/get"
         params = {
             "limit": limit,
             "offset": offset,
-            "created_at": 0,  # Seems to be a required param, 0 for latest?
+            "created_at": 0,
         }
 
         try:
