@@ -21,8 +21,14 @@ class PaiAppParser:
 
         current_app = None
         apps = []
-
-        for element in soup.contents:
+        h2_els = soup.find_all("h2")
+        if len(h2_els) == 0:
+            return apps
+        # IMPORTANT: 只取第一个和第二个h2之间的元素
+        content = h2_els[0].next_siblings
+        for element in content:
+            if element == h2_els[1]:
+                break
             if element.name == "h3":
                 if current_app:
                     self._finalize_app(current_app, apps, pub_date)
