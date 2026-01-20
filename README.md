@@ -35,7 +35,7 @@ python main.py \
 
 抓取结果默认保存在 `data/` 目录下，格式为：
 ```
-data/YYYY-MM-DD/App标题_[支持平台列表].md
+data/YYYY-MM-DD/App标题-[支持平台列表].md
 data/YYYY-MM-DD/images/图片.jpg
 ```
 

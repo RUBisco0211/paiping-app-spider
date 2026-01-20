@@ -12,26 +12,22 @@ class PaiAppSaver:
     def save_app(self, app_data):
         """
         Save the parsed app data to a markdown file.
-        Filename format: {YYYY-MM-DD}/{AppTitle}_[{Platforms}].md
+        Filename format: {YYYY-MM-DD}/{AppTitle}-[{Platforms}].md
         Images are downloaded to {AppTitle}-images/ subdirectory.
         """
         platforms_str = ",".join(app_data["platforms"])
-        filename = f"{app_data['title']}_[{platforms_str}].md"
+        filename = f"{app_data['title']}-[{platforms_str}].md"
 
-        # Create date-based subdirectory
         date_dir = os.path.join(self.output_dir, app_data["date"])
         if not os.path.exists(date_dir):
             os.makedirs(date_dir)
 
-        # Ensure filename is safe
         filename = filename.replace("/", "-").replace("\\", "-")
 
-        # Create app-specific image directory
         app_img_dir = os.path.join(date_dir, "images")
         if not os.path.exists(app_img_dir):
             os.makedirs(app_img_dir)
 
-        # Download images and update content
         content = app_data["content"]
         self._download_images(app_data["img_list"], app_img_dir)
 
