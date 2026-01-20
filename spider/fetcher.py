@@ -26,7 +26,6 @@ class PaiAppFetcher:
         }
 
         try:
-            # print(f"DEBUG: Requesting {url} with params {params}")
             response = self.session.get(url, params=params)
             response.raise_for_status()
             data = response.json()
