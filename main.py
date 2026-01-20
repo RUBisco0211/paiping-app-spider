@@ -45,7 +45,7 @@ def main(args: RunConfig):
 
     setup_logging(args.log_file)
     logging.info("启动sspai爬虫...")
-    logging.info(f"运行配置: {json.dump(final_cfg)}")
+    logging.info(f"运行配置: {json.dumps(final_cfg)}")
 
     fetcher = PaiAppFetcher()
     parser = PaiAppParser()
