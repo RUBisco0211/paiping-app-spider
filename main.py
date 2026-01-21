@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 
 from pyrallis import argparsing
 
-from spider import PaiAppFetcher, PaiAppParser, PaiAppSaver
+from spider import PaiAppParser, PaiAppSaver, PaiArticleFetcher
 
 
 @dataclass
@@ -47,7 +47,7 @@ def main(args: RunConfig):
     logging.info("启动sspai爬虫...")
     logging.info(f"运行配置: {json.dumps(final_cfg)}")
 
-    fetcher = PaiAppFetcher()
+    fetcher = PaiArticleFetcher()
     parser = PaiAppParser()
     saver = PaiAppSaver(output_dir=args.output_dir)
 
@@ -73,10 +73,7 @@ def main(args: RunConfig):
             if "派评" in title and "近期值得关注" in title:
                 logging.info(f"发现目标文章: {aid} {title} ({article_date})")
 
-                detail = fetcher.get_article_detail(aid)
-                if detail is None:
-                    logging.info(f"文章 {aid} 内容不存在")
-                    continue
+                detail = fetcher.fetch_article_detail(aid)
                 apps = parser.parse_apps(detail)
                 logging.info(f"文章中发现 {len(apps)} 个 app 推荐")
 

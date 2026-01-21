@@ -13,26 +13,9 @@ from .data import PaiAppData, PaiAppRawData
 class PaiAppParser:
     SPECIAL_IMAGE_SUFFIX = (".png", ".jpg", ".jpeg", "PNG", ".JPG", ".JPEG")
 
-    def _parse_apps_new(self, article: dict[str, Any], date: str) -> list[PaiAppData]:
-        """
-        新文章 api 返回格式不同
-        """
-        raw_list: list[dict[str, Any]] = list(article.get("body_extends", []))
-        if len(raw_list) <= 2:
-            logging.info("没有找到 app")
-            return []
-
-        raw_list = raw_list[1:-1]
-        apps: list[PaiAppData] = []
-        for app_raw in raw_list:
-            title = str(app_raw.get("title", ""))
-            html_elements = str(app_raw.get("body", ""))
-            app = PaiAppRawData(title=title, html_elements=html_elements)
-            apps.append(self._finalize_app(app, date))
-        return apps
-
     def parse_apps(self, article: dict[str, Any] | None) -> list[PaiAppData]:
         if article is None:
+            logging.info("文章内容不存在")
             return []
 
         pub_date = "1970-01-01"
@@ -76,6 +59,24 @@ class PaiAppParser:
         if current_app:
             apps.append(self._finalize_app(current_app, pub_date))
 
+        return apps
+
+    def _parse_apps_new(self, article: dict[str, Any], date: str) -> list[PaiAppData]:
+        """
+        新文章 api 返回格式不同
+        """
+        raw_list: list[dict[str, Any]] = list(article.get("body_extends", []))
+        if len(raw_list) <= 2:
+            logging.info("没有找到 app")
+            return []
+
+        raw_list = raw_list[1:-1]
+        apps: list[PaiAppData] = []
+        for app_raw in raw_list:
+            title = str(app_raw.get("title", ""))
+            html_elements = str(app_raw.get("body", ""))
+            app = PaiAppRawData(title=title, html_elements=html_elements)
+            apps.append(self._finalize_app(app, date))
         return apps
 
     def _finalize_app(self, app_data: PaiAppRawData, date: str) -> PaiAppData:

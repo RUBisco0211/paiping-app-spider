@@ -4,7 +4,7 @@ from typing import Any
 import requests
 
 
-class PaiAppFetcher:
+class PaiArticleFetcher:
     BASE_URL = "https://sspai.com/api/v1"
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -38,7 +38,7 @@ class PaiAppFetcher:
             logging.error(f"Fetcher:抓取失败 {e}")
             return []
 
-    def get_article_detail(self, article_id: int) -> dict[str, Any] | None:
+    def fetch_article_detail(self, article_id: int) -> dict[str, Any] | None:
         url = f"{self.BASE_URL}/article/info/get"
         params = {"id": article_id, "view": "second"}
         try:

@@ -52,8 +52,8 @@ class PaiAppSaver:
                 if image_data:
                     with open(local_path, "wb") as f:
                         f.write(image_data)
-                    logging.info(f"Saver:下载图片 {filename}")
+                    logging.info(f"Saver:下载图片成功 {img_src}")
                 else:
-                    logging.warning(f"Saver:下载图片失败 {img_src}")
+                    raise Exception(f"Saver:下载图片失败 {img_src}")
             except Exception as e:
-                logging.error(f"Saver:下载图片失败 {img_src}: {e}")
+                logging.error(e)
