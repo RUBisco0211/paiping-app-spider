@@ -1,6 +1,7 @@
-import re
-import logging
 import datetime
+import logging
+import re
+
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 
@@ -15,7 +16,6 @@ class PaiAppParser:
 
         pub_date = "1970-01-01"
         if "released_time" in article:
-
             dt = datetime.datetime.fromtimestamp(article["released_time"])
             pub_date = dt.strftime("%Y-%m-%d")
 

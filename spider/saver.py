@@ -1,5 +1,6 @@
-import os
 import logging
+import os
+
 from .util import fetch_image_bytes
 
 
@@ -41,9 +42,7 @@ class PaiAppSaver:
             logging.error(f"Saver:保存失败 {filename}: {e}")
 
     def _download_images(self, list: list[str], img_dir):
-
         for img_src in list:
-
             # Extract filename from URL
             filename = img_src.split("?")[0].split("/")[-1]
             local_path = os.path.join(img_dir, filename)

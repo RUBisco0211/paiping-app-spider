@@ -1,5 +1,6 @@
-import requests
 import logging
+
+import requests
 
 
 class PaiAppFetcher:
@@ -17,7 +18,6 @@ class PaiAppFetcher:
         self.session.headers.update(self.HEADERS)
 
     def fetch_feed_articles(self, limit=20, offset=0):
-
         url = f"{self.BASE_URL}/article/index/page/get"
         params = {
             "limit": limit,

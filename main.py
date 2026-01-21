@@ -1,9 +1,9 @@
-import logging
-import time
 import datetime
-import os
 import json
-from dataclasses import dataclass, asdict
+import logging
+import os
+import time
+from dataclasses import asdict, dataclass
 
 import pyrallis
 
