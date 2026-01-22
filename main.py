@@ -28,8 +28,12 @@ def setup_logging(path: str):
 
 
 def main(args: RunConfig):
-    assert args.months > 0, "时间范围不合法"
-    assert args.page_size > 0, "分页大小不合法"
+    if not args.months > 0:
+        logging.error(f"main: 月范围 {args.months} 不合法")
+        return
+    if not args.page_size > 0:
+        logging.error(f"main: 分页大小 {args.page_size} 不合法")
+        return
 
     end = datetime.datetime.now()
     start = end - datetime.timedelta(args.months * 30)
@@ -44,8 +48,8 @@ def main(args: RunConfig):
     }
 
     setup_logging(args.log_file)
-    logging.info("启动sspai爬虫...")
-    logging.info(f"运行配置: {json.dumps(final_cfg)}")
+    logging.info("main: 启动sspai爬虫...")
+    logging.info(f"main: 运行配置: {json.dumps(final_cfg)}")
 
     fetcher = PaiArticleFetcher()
     parser = PaiAppParser()
@@ -56,7 +60,6 @@ def main(args: RunConfig):
     processed_count = 0
 
     while keep_going:
-        logging.info(f"抓取文章列表, offset={offset}...")
         articles = fetcher.fetch_feed_articles(limit=args.page_size, offset=offset)
 
         for article in articles:
@@ -64,18 +67,20 @@ def main(args: RunConfig):
             article_date = datetime.datetime.fromtimestamp(released_time)
 
             if article_date < start or article_date > end:
-                logging.info(f"文章发布时间 {article_date} 超出时间范围")
+                logging.info(
+                    f"main: 文章发布时间 {article_date} 超出时间范围, 结束文章抓取"
+                )
                 keep_going = False
                 break
 
             title = str(article.get("title", ""))
             aid = int(article["id"])
             if "派评" in title and "近期值得关注" in title:
-                logging.info(f"发现目标文章: {aid} {title} ({article_date})")
+                logging.info(f"main: 抓取目标文章: {aid} {title} ({article_date})")
 
                 detail = fetcher.fetch_article_detail(aid)
                 apps = parser.parse_apps(detail)
-                logging.info(f"文章中发现 {len(apps)} 个 app 推荐")
+                logging.info(f"main: 文章中发现 {len(apps)} 个 app 推荐")
 
                 for app in apps:
                     saver.save_app(app)

@@ -26,6 +26,7 @@ class PaiArticleFetcher:
             "created_at": 0,
         }
 
+        logging.info(f"Fetcher: 抓取文章列表, offset={offset} limit={limit}")
         try:
             response = self.session.get(url, params=params)
             response.raise_for_status()
@@ -35,7 +36,7 @@ class PaiArticleFetcher:
             else:
                 raise Exception("服务错误")
         except Exception as e:
-            logging.error(f"Fetcher:抓取失败 {e}")
+            logging.error(f"Fetcher: 抓取失败: {e}")
             return []
 
     def fetch_article_detail(self, article_id: int) -> dict[str, Any] | None:
@@ -49,5 +50,5 @@ class PaiArticleFetcher:
                 return data["data"]
             return None
         except Exception as e:
-            logging.error(f"Fetcher:获取文章详情失败: {e}")
+            logging.error(f"Fetcher: 获取文章详情失败: {e}")
             return None

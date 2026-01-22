@@ -7,27 +7,40 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 from markdownify import markdownify as md
 
-from .data import PaiAppData, PaiAppRawData
+from .data import PaiAppData, PaiAppMdFrontmatter, PaiAppRawData, PaiArticleData
 
 
 class PaiAppParser:
+    SSPAI_ARTICLE_BASE_URL = "https://sspai.com/post"
     SPECIAL_IMAGE_SUFFIX = (".png", ".jpg", ".jpeg", "PNG", ".JPG", ".JPEG")
+    DATE_FORMAT = "%Y-%m-%d"
+    DATE_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-    def parse_apps(self, article: dict[str, Any] | None) -> list[PaiAppData]:
-        if article is None:
+    def parse_apps(self, article_raw: dict[str, Any] | None) -> list[PaiAppData]:
+        if article_raw is None:
             logging.info("文章内容不存在")
             return []
 
-        pub_date = "1970-01-01"
-        if "released_time" in article:
-            dt = datetime.datetime.fromtimestamp(article["released_time"])
-            pub_date = dt.strftime("%Y-%m-%d")
+        date = "1970-01-01"
+        time = "1970-01-01 00:00:00"
+        if "released_time" in article_raw:
+            dt = datetime.datetime.fromtimestamp(article_raw["released_time"])
+            date = dt.strftime(self.DATE_FORMAT)
+            time = dt.strftime(self.DATE_TIME_FORMAT)
+
+        article_data = PaiArticleData(
+            id=article_raw["id"],
+            title=article_raw["title"],
+            url=f"{self.SSPAI_ARTICLE_BASE_URL}/{article_raw['id']}",
+            release_time=time,
+            released_date=date,
+        )
 
         # 新返回格式
-        if article["body_extends"] and len(article["body_extends"]) > 2:
-            return self._parse_apps_new(article, pub_date)
+        if "body_extends" in article_raw and len(article_raw["body_extends"]) > 2:
+            return self._parse_apps_new(article_raw, article_data)
 
-        html_content = article.get("body", "")
+        html_content = article_raw.get("body", "")
         soup = BeautifulSoup(html_content, "html.parser")
         current_app = None
         apps: list[PaiAppData] = []
@@ -35,7 +48,7 @@ class PaiAppParser:
 
         # 新返回格式
         if len(h2_els) == 0:
-            return self._parse_apps_new(article, pub_date)
+            return self._parse_apps_new(article_raw, article_data)
 
         # IMPORTANT: 只取第一个和第二个h2之间的元素
         content = h2_els[0].next_siblings
@@ -46,7 +59,7 @@ class PaiAppParser:
                 break
             if element.name == "h3":
                 if current_app:
-                    apps.append(self._finalize_app(current_app, pub_date))
+                    apps.append(self._finalize_app(current_app, article_data))
                 current_app = PaiAppRawData(
                     title=element.get_text().strip(),
                     html_elements=[],
@@ -57,13 +70,15 @@ class PaiAppParser:
                     current_app.html_elements.append(element)
 
         if current_app:
-            apps.append(self._finalize_app(current_app, pub_date))
+            apps.append(self._finalize_app(current_app, article_data))
 
         return apps
 
-    def _parse_apps_new(self, article: dict[str, Any], date: str) -> list[PaiAppData]:
+    def _parse_apps_new(
+        self, article: dict[str, Any], article_data: PaiArticleData
+    ) -> list[PaiAppData]:
         """
-        新文章 api 返回格式不同
+        新文章 api 返回格式, app html 在 data.body_extends[].body中
         """
         raw_list: list[dict[str, Any]] = list(article.get("body_extends", []))
         if len(raw_list) <= 2:
@@ -76,45 +91,79 @@ class PaiAppParser:
             title = str(app_raw.get("title", ""))
             html_elements = str(app_raw.get("body", ""))
             app = PaiAppRawData(title=title, html_elements=html_elements)
-            apps.append(self._finalize_app(app, date))
+            apps.append(self._finalize_app(app, article_data))
         return apps
 
-    def _finalize_app(self, app_data: PaiAppRawData, date: str) -> PaiAppData:
+    def _finalize_app(
+        self, app_data: PaiAppRawData, article_data: PaiArticleData
+    ) -> PaiAppData:
         if isinstance(app_data.html_elements, str):
             html_frag = app_data.html_elements
         else:
             html_frag = "".join([str(e) for e in app_data.html_elements])
 
-        img_list = []
         soup_frag = BeautifulSoup(html_frag, "html.parser")
-        for img in soup_frag.find_all("img"):
+
+        img_list, soup_frag = self._extract_and_transform_imgs(soup_frag)
+        platforms = self._extract_platforms(soup_frag)
+        keywords = self._extract_keywords(soup_frag)
+        app_name = re.split(r"[：:]", app_data.title)[0].strip()
+
+        frontmatter = PaiAppMdFrontmatter(
+            app_name=app_name,
+            title=app_data.title,
+            article_id=article_data.id,
+            article_title=article_data.title,
+            article_url=article_data.url,
+            platforms=platforms,
+            keywords=keywords,
+            released_time=article_data.release_time,
+        )
+
+        safe_title = self._clean_filename(app_data.title)
+        content_md = self._construct_content(frontmatter, soup_frag)
+        return PaiAppData(
+            article=article_data,
+            file_title=safe_title,
+            platforms=platforms,
+            content=content_md,
+            img_list=img_list,
+        )
+
+    def _construct_content(
+        self, frontmatter: PaiAppMdFrontmatter, soup: BeautifulSoup
+    ) -> str:
+        """
+        拼接 app markdown 文档内容
+        """
+        return f"{str(frontmatter)}\n{self._md_title(1, frontmatter.title)}\n{md(str(soup), heading_style='ATX')}"
+
+    def _extract_and_transform_imgs(
+        self, soup: BeautifulSoup
+    ) -> tuple[list[str], BeautifulSoup]:
+        """
+        提取可供下载的图片链接列表
+        并将 html 内 img.src 转换为本地图片相对路径
+        """
+        img_list = []
+        for img in soup.find_all("img"):
             img_src = str(img.get("src"))
             if not img_src:
                 continue
             # IMPORTANT: 特殊格式需要特殊路径处理
             if img_src.split("?")[0].endswith(self.SPECIAL_IMAGE_SUFFIX):
                 img_src = f"{img_src}/format/webp"
-            logging.info(f"Parser:获取图片下载链接 {img_src}")
+            logging.info(f"Parser: 获取图片下载链接 {img_src}")
+            # TODO: 尝试请求图片
             img_list.append(img_src)
             filename = img_src.split("?")[0].split("/")[-1]
-
             img["src"] = f"images/{filename}"
-        html_frag = str(soup_frag)
+        return img_list, soup
 
-        platforms = self._extract_platforms(html_frag)
-        content_md = f"# {app_data.title}\n\n" + md(html_frag, heading_style="ATX")
-        safe_title = self._clean_filename(app_data.title)
-
-        return PaiAppData(
-            date=date,
-            title=safe_title,
-            platforms=platforms,
-            content=content_md,
-            img_list=img_list,
-        )
-
-    def _extract_platforms(self, html_content: str) -> list[str]:
-        soup = BeautifulSoup(html_content, "html.parser")
+    def _extract_platforms(self, soup: BeautifulSoup) -> list[str]:
+        """
+        提取 app 平台列表
+        """
         platforms = []
         # Pattern: <li>平台：iOS</li> or <li>平台：iOS, Android</li>
         for li in soup.find_all("li"):
@@ -126,9 +175,29 @@ class PaiAppParser:
                     parts = re.split(r"[,，/、]", p_str)
                     platforms = [p.strip() for p in parts if p.strip()]
                     break
-
         return platforms
+
+    def _extract_keywords(self, soup: BeautifulSoup) -> list[str]:
+        """
+        提取 app 关键词列表
+        """
+        keywords = []
+        for li in soup.find_all("li"):
+            text = li.get_text()
+            if "关键词" in text:
+                match = re.search(r"关键词[：:]\s*(.*)", text)
+                if match:
+                    p_str = match.group(1)
+                    parts = re.split(r"[,，/、]", p_str)
+                    keywords = [p.strip() for p in parts if p.strip()]
+                    break
+        return keywords
 
     def _clean_filename(self, text: str) -> str:
         text = text.replace("：", "-").replace(":", "-")
         return re.sub(r'[\\/*?"<>|]', "", text).strip()
+
+    def _md_title(self, level: int, text: str) -> str:
+        if level not in range(1, 7):
+            logging.error(f"markdown 标题层级 {level} 错误")
+        return f"{'#' * level} {text}"
