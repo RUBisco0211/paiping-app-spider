@@ -15,6 +15,6 @@ def fetch_image_bytes(url, timeout=10, headers=None) -> bytes:
 
     content_type = resp.headers.get("Content-Type", "")
     if not content_type.startswith("image/"):
-        raise ValueError(f"URL did not return an image: {content_type}")
+        raise ValueError(f"url 无法指向图片: {content_type}")
 
     return resp.content
