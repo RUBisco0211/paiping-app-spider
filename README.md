@@ -52,5 +52,6 @@ paiping-app-spider/
 │   ├── saver.py      # 文件保存模块
 │   └── util.py       # 工具函数
 ├── requirements.txt
-└── data/             # 输出目录
+├── data/             # 输出目录
+└── scripts/          # 执行脚本
 ```
