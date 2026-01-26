@@ -1,7 +1,7 @@
 import datetime
 import logging
 import re
-from typing import Any
+from typing import Any, Iterator
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -16,10 +16,10 @@ class PaiAppParser:
     DATE_FORMAT = "%Y-%m-%d"
     DATE_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-    def parse_apps(self, article_raw: dict[str, Any] | None) -> list[PaiAppData]:
+    def parse_apps(self, article_raw: dict[str, Any] | None) -> Iterator[PaiAppData]:
         if article_raw is None:
             logging.info("文章内容不存在")
-            return []
+            return
 
         date = "1970-01-01"
         time = "1970-01-01 00:00:00"
@@ -38,17 +38,18 @@ class PaiAppParser:
 
         # 新返回格式
         if "body_extends" in article_raw and len(article_raw["body_extends"]) > 2:
-            return self._parse_apps_new(article_raw, article_data)
+            yield from self._parse_apps_new(article_raw, article_data)
+            return
 
         html_content = article_raw.get("body", "")
         soup = BeautifulSoup(html_content, "html.parser")
         current_app = None
-        apps: list[PaiAppData] = []
         h2_els = soup.find_all("h2")
 
         # 新返回格式
         if len(h2_els) == 0:
-            return self._parse_apps_new(article_raw, article_data)
+            yield from self._parse_apps_new(article_raw, article_data)
+            return
 
         # IMPORTANT: 只取第一个和第二个h2之间的元素
         content = h2_els[0].next_siblings
@@ -59,7 +60,7 @@ class PaiAppParser:
                 break
             if element.name == "h3":
                 if current_app:
-                    apps.append(self._finalize_app(current_app, article_data))
+                    yield self._finalize_app(current_app, article_data)
                 current_app = PaiAppRawData(
                     title=element.get_text().strip(),
                     html_elements=[],
@@ -70,29 +71,25 @@ class PaiAppParser:
                     current_app.html_elements.append(element)
 
         if current_app:
-            apps.append(self._finalize_app(current_app, article_data))
-
-        return apps
+            yield self._finalize_app(current_app, article_data)
 
     def _parse_apps_new(
         self, article: dict[str, Any], article_data: PaiArticleData
-    ) -> list[PaiAppData]:
+    ) -> Iterator[PaiAppData]:
         """
         新文章 api 返回格式, app html 在 data.body_extends[].body中
         """
         raw_list: list[dict[str, Any]] = list(article.get("body_extends", []))
         if len(raw_list) <= 2:
             logging.info("没有找到 app")
-            return []
+            return
 
         raw_list = raw_list[1:-1]
-        apps: list[PaiAppData] = []
         for app_raw in raw_list:
             title = str(app_raw.get("title", ""))
             html_elements = str(app_raw.get("body", ""))
             app = PaiAppRawData(title=title, html_elements=html_elements)
-            apps.append(self._finalize_app(app, article_data))
-        return apps
+            yield self._finalize_app(app, article_data)
 
     def _finalize_app(
         self, app_data: PaiAppRawData, article_data: PaiArticleData

@@ -79,12 +79,12 @@ def main(args: RunConfig):
                 logging.info(f"main: 抓取目标文章: {aid} {title} ({article_date})")
 
                 detail = fetcher.fetch_article_detail(aid)
-                apps = parser.parse_apps(detail)
-                logging.info(f"main: 文章中发现 {len(apps)} 个 app 推荐")
-
-                for app in apps:
+                app_count = 0
+                for app in parser.parse_apps(detail):
                     saver.save_app(app)
+                    app_count += 1
                     processed_count += 1
+                logging.info(f"main: 文章中发现 {app_count} 个 app 推荐")
 
                 time.sleep(args.sleep_time)
 

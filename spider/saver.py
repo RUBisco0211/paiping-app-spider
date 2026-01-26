@@ -53,6 +53,6 @@ class PaiAppSaver:
                         f.write(image_data)
                     logging.info(f"Saver: 下载图片成功 {img_src}")
                 else:
-                    raise Exception(f"Saver: 下载图片失败 {img_src}")
+                    raise Exception(img_src)
             except Exception as e:
-                logging.error(e)
+                logging.error(f"Saver: 下载图片失败 {e}")
