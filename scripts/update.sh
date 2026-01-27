@@ -1,3 +1,3 @@
 # /bin/zsh
 source ./venv/bin/activate
-python ./main.py --months 1
+python ./main.py --update True

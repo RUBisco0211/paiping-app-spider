@@ -49,7 +49,17 @@ def main(args: RunConfig):
 
     setup_logging(args.log_file)
     logging.info("main: 启动sspai爬虫...")
-    logging.info(f"main: 运行配置: {json.dumps(final_cfg)}")
+
+    if args.update:
+        logging.info(
+            f"main: 运行配置: update模式，从 {start.strftime('%Y-%m-%d %H:%M:%S')} 到 {end.strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+    else:
+        logging.info(
+            f"main: 运行配置: 时间范围从 {start.strftime('%Y-%m-%d %H:%M:%S')} 到 {end.strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+
+    logging.info(f"main: 详细配置: {json.dumps(final_cfg)}")
 
     fetcher = PaiArticleFetcher()
     parser = PaiAppParser()
