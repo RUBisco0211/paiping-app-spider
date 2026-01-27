@@ -29,8 +29,10 @@ pip install -r requirements.txt
 ## 使用
 
 ```bash
+source venv/bin/activate
 python main.py \
---months [months] \ # 抓取近几个月内的文章
+--update [bool]  \ # 同步新发布的文章，若本地无文章则须使用 months 参数抓取
+--months [months] \ # 抓取近几个月内的文章，若本地有时间范围内的文章，会被覆盖
 --page_size [page_size] \ # 每次分页查询大小
 --output_dir [output_dir] \ # 结果保存目录，默认 data/
 ```
