@@ -53,7 +53,7 @@ def calculate_time_range(
         # 本地没有文章, 检查 months 参数
         logging.info("main: 本地没有已抓取文章, 使用 months 参数抓取")
         if args.update:
-            logging.warn("main: 直接抓取模式下 update 参数无效")
+            logging.warning("main: 直接抓取模式下 update 参数无效")
         if args.months <= 0:
             logging.error(f"main: months={args.months} 不合法")
             sys.exit(0)
@@ -67,7 +67,7 @@ def calculate_time_range(
         # update 模式
         logging.info("main: 本地已有文章, 使用同步模式抓取新文章")
         if args.months > 0:
-            logging.warn("main: 同步模式下 months 参数无效")
+            logging.warning("main: 同步模式下 months 参数无效")
 
         start = latest_local_date + dt.timedelta(days=1)
         end = dt.datetime.now()
