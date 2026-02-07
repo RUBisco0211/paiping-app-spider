@@ -81,7 +81,7 @@ def calculate_time_range(
     end = dt.datetime.now()
     months_start = end - dt.timedelta(days=30 * args.months if args.months else 0)
     if latest_local_date >= months_start:
-        logging.warn(
+        logging.warning(
             f"main: 本地 {date_format(months_start)} 至 {date_format(latest_local_date)} 的文章将被覆盖"
         )
     return (months_start, end)
