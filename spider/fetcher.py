@@ -1,7 +1,8 @@
 import logging
-from typing import Any
 
 import requests
+
+from .data import JSONObjdctType
 
 
 class PaiArticleFetcher:
@@ -18,7 +19,7 @@ class PaiArticleFetcher:
         self.session = requests.Session()
         self.session.headers.update(self.HEADERS)
 
-    def fetch_feed_articles(self, limit=20, offset=0) -> list[dict[str, Any]]:
+    def fetch_feed_articles(self, limit=20, offset=0) -> list[JSONObjdctType]:
         url = f"{self.BASE_URL}/article/index/page/get"
         params = {
             "limit": limit,
@@ -30,7 +31,7 @@ class PaiArticleFetcher:
         try:
             response = self.session.get(url, params=params)
             response.raise_for_status()
-            data: dict[str, Any] = response.json()
+            data: JSONObjdctType = response.json()
             if data.get("error") == 0:
                 return data.get("data", [])
             else:
@@ -39,7 +40,7 @@ class PaiArticleFetcher:
             logging.error(f"Fetcher: 抓取失败: {e}")
             return []
 
-    def fetch_article_detail(self, article_id: int) -> dict[str, Any] | None:
+    def fetch_article_detail(self, article_id: int) -> JSONObjdctType | None:
         url = f"{self.BASE_URL}/article/info/get"
         params = {"id": article_id, "view": "second"}
         try:

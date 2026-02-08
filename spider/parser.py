@@ -1,13 +1,19 @@
 import datetime
 import logging
 import re
-from typing import Any, Iterator
+from typing import Iterator
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 from markdownify import markdownify as md
 
-from .data import PaiAppData, PaiAppMdFrontmatter, PaiAppRawData, PaiArticleData
+from .data import (
+    JSONObjdctType,
+    PaiAppData,
+    PaiAppMdFrontmatter,
+    PaiAppRawData,
+    PaiArticleData,
+)
 from .util import date_format, datetime_format
 
 
@@ -15,7 +21,7 @@ class PaiAppParser:
     SSPAI_ARTICLE_BASE_URL = "https://sspai.com/post"
     SPECIAL_IMAGE_SUFFIX = (".png", ".jpg", ".jpeg", "PNG", ".JPG", ".JPEG")
 
-    def parse_apps(self, article_raw: dict[str, Any] | None) -> Iterator[PaiAppData]:
+    def parse_apps(self, article_raw: JSONObjdctType | None) -> Iterator[PaiAppData]:
         if article_raw is None:
             logging.info("文章内容不存在")
             return
@@ -40,7 +46,7 @@ class PaiAppParser:
             yield from self._parse_apps_new(article_raw, article_data)
             return
 
-        html_content = article_raw.get("body", "")
+        html_content: str = article_raw.get("body", "")
         soup = BeautifulSoup(html_content, "html.parser")
         current_app = None
         h2_els = soup.find_all("h2")
@@ -73,12 +79,12 @@ class PaiAppParser:
             yield self._finalize_app(current_app, article_data)
 
     def _parse_apps_new(
-        self, article: dict[str, Any], article_data: PaiArticleData
+        self, article: JSONObjdctType, article_data: PaiArticleData
     ) -> Iterator[PaiAppData]:
         """
         新文章 api 返回格式, app html 在 data.body_extends[].body中
         """
-        raw_list: list[dict[str, Any]] = list(article.get("body_extends", []))
+        raw_list: list[JSONObjdctType] = list(article.get("body_extends", []))
         if len(raw_list) <= 2:
             logging.info("没有找到 app")
             return

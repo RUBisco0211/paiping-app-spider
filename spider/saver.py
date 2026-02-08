@@ -1,7 +1,7 @@
 import logging
 import os
 
-from spider.data import PaiAppData
+from .data import PaiAppData
 
 from .util import fetch_image_bytes
 
