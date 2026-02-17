@@ -1,11 +1,12 @@
+import asyncio
 import datetime as dt
 import json
 import logging
 import os
 import sys
-import time
 from dataclasses import asdict, dataclass
 
+import aiohttp
 from pyrallis import argparsing
 
 from spider import PaiAppParser, PaiAppSaver, PaiArticleFetcher
@@ -20,6 +21,11 @@ class RunConfig:
     page_size: int = 20
     log_file: str = "spider.log"
     sleep_time: int = 1
+    article_concurrency: int = 8
+    image_concurrency: int = 16
+    request_timeout: int = 15
+    max_retries: int = 3
+    retry_base_delay: float = 0.5
 
 
 def setup_logging(path: str):
@@ -31,7 +37,7 @@ def setup_logging(path: str):
 
 
 def get_latest_local_date(output_dir: str) -> dt.datetime | None:
-    """获取最新文章的日期，如果不存在返回 None"""
+    """获取本地最新文章的日期，如果不存在返回 None"""
     if not os.path.exists(output_dir):
         return None
 
@@ -87,7 +93,7 @@ def calculate_time_range(
     return (months_start, end)
 
 
-def main(args: RunConfig):
+async def async_main(args: RunConfig):
     setup_logging(args.log_file)
 
     if os.path.exists(args.output_dir) is False:
@@ -106,54 +112,152 @@ def main(args: RunConfig):
         "end": date_format(end),
     }
 
-    setup_logging(args.log_file)
     logging.info("main: 启动sspai爬虫...")
 
     logging.info(f"main: 详细配置: {json.dumps(final_cfg)}")
 
-    fetcher = PaiArticleFetcher()
+    fetcher = PaiArticleFetcher(
+        request_timeout=args.request_timeout,
+        max_retries=args.max_retries,
+        retry_base_delay=args.retry_base_delay,
+    )
     parser = PaiAppParser()
     saver = PaiAppSaver(output_dir=args.output_dir)
 
+    article_semaphore = asyncio.Semaphore(args.article_concurrency)
+    image_semaphore = asyncio.Semaphore(args.image_concurrency)
+
     offset = 0
     keep_going = True
-    processed_count = 0
+    article_tasks: list[asyncio.Task[tuple[int, int, int, bool]]] = []
+    stats = {
+        "articles_scanned": 0,
+        "articles_matched": 0,
+        "articles_succeeded": 0,
+        "articles_failed": 0,
+        "images_succeeded": 0,
+        "images_failed": 0,
+    }
 
-    while keep_going:
-        articles = fetcher.fetch_feed_articles(limit=args.page_size, offset=offset)
-
-        for article in articles:
-            released_time = article.get("released_time", 0)
-            article_date = dt.datetime.fromtimestamp(released_time)
-
-            if article_date < start or article_date > end:
-                logging.info(
-                    f"main: 文章发布时间 {article_date} 超出时间范围, 结束文章抓取"
+    async with aiohttp.ClientSession(headers=PaiArticleFetcher.HEADERS) as image_session:
+        await fetcher.start()
+        try:
+            while keep_going:
+                articles = await fetcher.fetch_feed_articles(
+                    limit=args.page_size, offset=offset
                 )
-                keep_going = False
-                break
+                if not articles:
+                    logging.info("main: 没有更多文章，结束抓取")
+                    break
 
-            title = str(article.get("title", ""))
-            aid = int(article["id"])
-            if "派评" in title and "近期值得关注" in title:
-                logging.info(f"main: 抓取目标文章: {aid} {title} ({article_date})")
+                for article in articles:
+                    stats["articles_scanned"] += 1
+                    released_time = article.get("released_time", 0)
+                    article_date = dt.datetime.fromtimestamp(released_time)
 
-                detail = fetcher.fetch_article_detail(aid)
-                app_count = 0
-                for app in parser.parse_apps(detail):
-                    saver.save_app(app)
-                    app_count += 1
-                processed_count += app_count
-                logging.info(f"main: 文章中发现 {app_count} 个 app 推荐")
+                    if article_date < start or article_date > end:
+                        logging.info(
+                            f"main: 文章发布时间 {article_date} 超出时间范围, 结束文章抓取"
+                        )
+                        keep_going = False
+                        break
 
-                time.sleep(args.sleep_time)
+                    title = str(article.get("title", ""))
+                    aid = int(article["id"])
+                    if "派评" in title and "近期值得关注" in title:
+                        stats["articles_matched"] += 1
+                        logging.info(f"main: 抓取目标文章: {aid} {title} ({article_date})")
+                        article_tasks.append(
+                            asyncio.create_task(
+                                process_article(
+                                    aid=aid,
+                                    fetcher=fetcher,
+                                    parser=parser,
+                                    saver=saver,
+                                    article_semaphore=article_semaphore,
+                                    image_semaphore=image_semaphore,
+                                    image_session=image_session,
+                                    request_timeout=args.request_timeout,
+                                )
+                            )
+                        )
 
-        offset += args.page_size
-        time.sleep(args.sleep_time)
+                offset += args.page_size
+                if keep_going and args.sleep_time > 0:
+                    await asyncio.sleep(args.sleep_time)
 
-    logging.info(f"完成. 处理了 {processed_count} 个 app")
+            if article_tasks:
+                results = await asyncio.gather(*article_tasks, return_exceptions=True)
+                for result in results:
+                    if isinstance(result, Exception):
+                        stats["articles_failed"] += 1
+                        logging.error(f"main: 文章任务异常: {result}")
+                        continue
+
+                    app_count, img_success, img_failed, ok = result
+                    if ok:
+                        stats["articles_succeeded"] += 1
+                    else:
+                        stats["articles_failed"] += 1
+                    stats["images_succeeded"] += img_success
+                    stats["images_failed"] += img_failed
+                    logging.info(f"main: 文章中发现 {app_count} 个 app 推荐")
+        finally:
+            await fetcher.close()
+
+    logging.info(f"完成. 统计: {json.dumps(stats, ensure_ascii=False)}")
+
+
+async def process_article(
+    aid: int,
+    fetcher: PaiArticleFetcher,
+    parser: PaiAppParser,
+    saver: PaiAppSaver,
+    article_semaphore: asyncio.Semaphore,
+    image_semaphore: asyncio.Semaphore,
+    image_session: aiohttp.ClientSession,
+    request_timeout: int,
+) -> tuple[int, int, int, bool]:
+    async with article_semaphore:
+        detail = await fetcher.fetch_article_detail(aid)
+        if detail is None:
+            logging.error(f"main: 获取文章详情失败 article_id={aid}")
+            return (0, 0, 0, False)
+
+        try:
+            apps = list(parser.parse_apps(detail))
+        except Exception as e:
+            logging.error(f"main: 解析文章失败 article_id={aid} error={e}")
+            return (0, 0, 0, False)
+
+        if not apps:
+            return (0, 0, 0, True)
+
+        save_tasks = [
+            asyncio.create_task(
+                saver.save_app_async(
+                    app_data=app,
+                    session=image_session,
+                    image_semaphore=image_semaphore,
+                    timeout=request_timeout,
+                )
+            )
+            for app in apps
+        ]
+        save_results = await asyncio.gather(*save_tasks, return_exceptions=True)
+        img_success = 0
+        img_failed = 0
+        ok = True
+        for save_result in save_results:
+            if isinstance(save_result, Exception):
+                ok = False
+                continue
+            success, failed = save_result
+            img_success += success
+            img_failed += failed
+        return (len(apps), img_success, img_failed, ok)
 
 
 if __name__ == "__main__":
     cfg = argparsing.parse(config_class=RunConfig)
-    main(cfg)
+    asyncio.run(async_main(cfg))

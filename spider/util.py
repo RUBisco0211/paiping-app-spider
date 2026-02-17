@@ -1,5 +1,8 @@
+import asyncio
 import datetime as dt
+import logging
 
+import aiohttp
 import requests
 
 
@@ -28,3 +31,20 @@ def fetch_image_bytes(url, timeout=10, headers=None) -> bytes:
         raise ValueError(f"url 无法指向图片: {content_type}")
 
     return resp.content
+
+
+async def fetch_image_bytes_async(
+    session: aiohttp.ClientSession,
+    url: str,
+    timeout: int = 10,
+) -> bytes:
+    try:
+        async with session.get(url, timeout=timeout) as resp:
+            resp.raise_for_status()
+            content_type = resp.headers.get("Content-Type", "")
+            if not content_type.startswith("image/"):
+                raise ValueError(f"url 无法指向图片: {content_type}")
+            return await resp.read()
+    except asyncio.TimeoutError as e:
+        logging.error(f"图片下载超时: {url}")
+        raise TimeoutError(url) from e
