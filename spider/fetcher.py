@@ -4,7 +4,7 @@ import logging
 
 import aiohttp
 
-from .data import JSONObjdctType
+from .data import JSONObjectType
 
 
 class PaiArticleFetcher:
@@ -38,7 +38,7 @@ class PaiArticleFetcher:
 
     async def _request_json(
         self, url: str, params: dict[str, str | int], context: str
-    ) -> JSONObjdctType | None:
+    ) -> JSONObjectType | None:
         if self.session is None:
             raise RuntimeError("Fetcher session 未初始化，请先调用 start()")
 
@@ -66,7 +66,7 @@ class PaiArticleFetcher:
 
         return None
 
-    async def fetch_feed_articles(self, limit=20, offset=0) -> list[JSONObjdctType]:
+    async def fetch_feed_articles(self, limit=20, offset=0) -> list[JSONObjectType]:
         url = f"{self.BASE_URL}/article/index/page/get"
         params = {
             "limit": limit,
@@ -90,7 +90,7 @@ class PaiArticleFetcher:
         )
         return []
 
-    async def fetch_article_detail(self, article_id: int) -> JSONObjdctType | None:
+    async def fetch_article_detail(self, article_id: int) -> JSONObjectType | None:
         url = f"{self.BASE_URL}/article/info/get"
         params = {"id": article_id, "view": "second"}
         data = await self._request_json(
