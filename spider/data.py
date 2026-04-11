@@ -4,8 +4,8 @@ from typing import Any
 import yaml
 from bs4.element import PageElement
 
-type JSONPrimitiveType = int | float | str | bool | None | JSONObjdctType
-type JSONObjdctType = dict[str, Any]
+type JSONPrimitiveType = int | float | str | bool | None | JSONObjectType
+type JSONObjectType = dict[str, Any]
 
 
 @dataclass
