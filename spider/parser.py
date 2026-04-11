@@ -8,7 +8,7 @@ from bs4.element import Tag
 from markdownify import markdownify as md
 
 from .data import (
-    JSONObjdctType,
+    JSONObjectType,
     PaiAppData,
     PaiAppMdFrontmatter,
     PaiAppRawData,
@@ -21,7 +21,7 @@ class PaiAppParser:
     SSPAI_ARTICLE_BASE_URL = "https://sspai.com/post"
     SPECIAL_IMAGE_SUFFIX = (".png", ".jpg", ".jpeg", "PNG", ".JPG", ".JPEG")
 
-    def parse_apps(self, article_raw: JSONObjdctType | None) -> Iterator[PaiAppData]:
+    def parse_apps(self, article_raw: JSONObjectType | None) -> Iterator[PaiAppData]:
         if article_raw is None:
             logging.info("文章内容不存在")
             return
@@ -79,12 +79,12 @@ class PaiAppParser:
             yield self._finalize_app(current_app, article_data)
 
     def _parse_apps_new(
-        self, article: JSONObjdctType, article_data: PaiArticleData
+        self, article: JSONObjectType, article_data: PaiArticleData
     ) -> Iterator[PaiAppData]:
         """
         新文章 api 返回格式, app html 在 data.body_extends[].body中
         """
-        raw_list: list[JSONObjdctType] = list(article.get("body_extends", []))
+        raw_list: list[JSONObjectType] = list(article.get("body_extends", []))
         if len(raw_list) <= 2:
             logging.info("没有找到 app")
             return

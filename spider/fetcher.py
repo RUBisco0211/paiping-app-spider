@@ -37,7 +37,7 @@ class PaiArticleFetcher:
             await self.session.close()
 
     async def _request_json(
-        self, url: str, params: dict[str, str | int], context: str
+        self, url: str, params: dict, context: str
     ) -> JSONObjectType | None:
         if self.session is None:
             raise RuntimeError("Fetcher session 未初始化，请先调用 start()")
@@ -68,11 +68,7 @@ class PaiArticleFetcher:
 
     async def fetch_feed_articles(self, limit=20, offset=0) -> list[JSONObjectType]:
         url = f"{self.BASE_URL}/article/index/page/get"
-        params = {
-            "limit": limit,
-            "offset": offset,
-            "created_at": 0,
-        }
+        params = {"limit": limit, "offset": offset, "created_at": 0}
 
         logging.info(f"Fetcher: 抓取文章列表, offset={offset} limit={limit}")
         data = await self._request_json(
