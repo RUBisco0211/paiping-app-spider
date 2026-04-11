@@ -17,19 +17,17 @@ beautifulsoup4
 markdownify
 pytest
 pyrallis
+aiohttp
 ```
 
 安装依赖：
 ```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+uv sync
 ```
 
 ## 使用
 
 ```bash
-source venv/bin/activate
 python main.py \
 --update [bool]  \ # 同步新发布的文章，若本地无文章则须使用 months 参数抓取
 --months [months] \ # 抓取近几个月内的文章，若本地有时间范围内的文章，会被覆盖
