@@ -1,6 +1,0 @@
-requests
-aiohttp
-beautifulsoup4
-markdownify
-pytest
-pyrallis
